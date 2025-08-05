@@ -6,6 +6,7 @@
 #include <chrono>
 #include "Components.h"
 #include <entt.hpp>
+#include "TextureSystem.h"
 
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -23,9 +24,9 @@ namespace UniformSystem {
 	void CreateUniformBuffers(UniformComponent * uniform);
 	void UpdateUniformBuffer(UniformComponent* uniform, uint32_t currentImage, CameraComponent* camera, TransformComponent* transform);
 	void CreateDescriptorPool(UniformComponent* uniform);
-	void CreateDescriptorSets(UniformComponent* uniform, VkImageView textureImageView, VkSampler textureSampler);
+	void CreateDescriptorSets(UniformComponent* uniform, Texture& texture);
 
-	void CreateUniformComponent(UniformComponent* uniform, VkImageView textureImageView, VkSampler textureSampler);
+	void CreateUniformComponent(UniformComponent* uniform, Texture& texture);
 
 	VkDescriptorSet* GetDescriptorSet(UniformComponent* uniform, int frame);
 

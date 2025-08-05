@@ -146,7 +146,9 @@
     <ClCompile Include="AssetManager.cpp" />
     <ClCompile Include="CameraSystem.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="TextureSystem.cpp" />
     <ClCompile Include="TransformSystem.cpp" />
     <ClCompile Include="UniformSystem.cpp" />
   </ItemGroup>
@@ -155,8 +157,11 @@
     <ClInclude Include="CameraSystem.h" />
     <ClInclude Include="Components.h" />
     <ClInclude Include="Geometry.h" />
+    <ClInclude Include="Pipeline.h" />
     <ClInclude Include="RenderConstants.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RendererGlobals.h" />
+    <ClInclude Include="TextureSystem.h" />
     <ClInclude Include="TransformSystem.h" />
     <ClInclude Include="UniformSystem.h" />
     <ClInclude Include="VulkanHelpers.h" />

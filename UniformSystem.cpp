@@ -8,7 +8,6 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
 #include "Components.h"
 
 namespace UniformSystem {
@@ -39,10 +38,10 @@ void UniformSystem::Destroy(entt::registry& registry) {
 		DestroyComponent(&uniform);
 	}
 }
-void UniformSystem::CreateUniformComponent(UniformComponent* uniform, VkImageView textureImageView, VkSampler textureSampler) {
+void UniformSystem::CreateUniformComponent(UniformComponent* uniform, Texture & texture) {
 	CreateUniformBuffers(uniform);
 	CreateDescriptorPool(uniform);
-	CreateDescriptorSets(uniform, textureImageView, textureSampler);
+	CreateDescriptorSets(uniform, texture);
 }
 
 void UniformSystem::CreateDescriptorSetLayout() {
@@ -123,7 +122,7 @@ void UniformSystem::CreateDescriptorPool(UniformComponent* uniform) {
 		throw std::runtime_error("failed to create descriptor pool!");
 	}
 }
-void UniformSystem::CreateDescriptorSets(UniformComponent * uniform, VkImageView textureImageView, VkSampler textureSampler) {
+void UniformSystem::CreateDescriptorSets(UniformComponent * uniform, Texture & texture) {
 	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -144,8 +143,8 @@ void UniformSystem::CreateDescriptorSets(UniformComponent * uniform, VkImageView
 
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = textureImageView;
-		imageInfo.sampler = textureSampler;
+		imageInfo.imageView = texture.textureImageView;
+		imageInfo.sampler = texture.textureSampler;
 
 		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

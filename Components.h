@@ -31,3 +31,7 @@ struct UniformComponent {
 	std::vector<void*> uniformBuffersMapped;
 
 };
+
+struct MaterialComponent {
+
+};

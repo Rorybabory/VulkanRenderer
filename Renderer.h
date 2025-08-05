@@ -11,6 +11,8 @@
 #include <glm/glm.hpp>
 #include "Geometry.h"
 #include "UniformSystem.h"
+#include "Pipeline.h"
+#include "TextureSystem.h"
 
 typedef struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
@@ -74,7 +76,6 @@ private:
 	void CreateIndexBuffer();
 
 	void CreateDepthResources();
-	void CreateTextureImage();
 	
 
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -91,12 +92,14 @@ private:
 
 	
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-
 	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	void CreateTextureImage(Texture& tex, const std::string& filename);
+	void CreateTextureImageView(Texture & tex);
+	void CreateTextureSampler(Texture& tex);
 
-	void CreateTextureImageView();
-	void CreateTextureSampler();
+	void CreateTexture(Texture& tex, const std::string& filename);
 
+	void DestroyTexture(Texture & tex);
 
 	VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
@@ -138,10 +141,7 @@ private:
 
 	VkRenderPass renderPass;
 
-	VkPipelineLayout pipelineLayout;
-	
-	VkPipeline graphicsPipeline;
-
+	Pipeline pipeline;
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
@@ -153,10 +153,11 @@ private:
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
 
-	VkImage textureImage;
+	/*VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
-	VkSampler textureSampler;
+	VkSampler textureSampler;*/
+	Texture texture;
 
 	UniformComponent* uniform;
 

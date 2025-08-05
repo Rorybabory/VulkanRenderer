@@ -1,6 +1,8 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <iostream>
+#include <vector>
+#include <fstream>
 
 static uint32_t FindMemoryType(VkPhysicalDevice physdevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
@@ -41,3 +43,21 @@ static void CreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice, VkDev
 	vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
+static std::vector<char> readFile(const std::string& filename) {
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open()) {
+		throw std::runtime_error("failed to open file!");
+	}
+
+	size_t fileSize = (size_t)file.tellg();
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return buffer;
+
+}
