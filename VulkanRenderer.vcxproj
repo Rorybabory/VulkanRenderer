@@ -148,6 +148,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="RendererGlobals.cpp" />
     <ClCompile Include="TextureSystem.cpp" />
     <ClCompile Include="TransformSystem.cpp" />
     <ClCompile Include="UniformSystem.cpp" />

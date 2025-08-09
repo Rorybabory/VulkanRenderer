@@ -1,19 +1,18 @@
 #version 450
 
-layout(location = 0) out vec4 outColor;
-
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 texCoord;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 wPos;
 
+layout(location = 0) out vec4 outColor;
 layout(binding = 1) uniform sampler2D texSampler;
 
 
 void main() {
 
     vec3 lightColor = vec3(1.0f);
-    vec3 ambLightColor = vec3(0.0f);
+    vec3 ambLightColor = vec3(0.1f);
     float diffCoeff = 1.0;
 
     vec3 lightPos = vec3(-20.0f, 20.0f, 20.0f);

@@ -1,12 +1,14 @@
 #pragma once
 #include "VulkanHelpers.h"
 #include "UniformSystem.h"
+#include "Components.h"
 #include <iostream>
 class Pipeline
 {
 public:
 	void CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass& renderPass, VkShaderModule& vertShaderModule, VkShaderModule& fragShaderModule);
-	Pipeline(VkDevice& d) : device(d), pipeline(), pipelineLayout() {}
+
+	Pipeline() : pipeline(), pipelineLayout() {}
 	VkPipeline GetPipeline() {
 		if (created) {
 			return pipeline;
@@ -24,11 +26,24 @@ public:
 			return VkPipelineLayout();
 		}
 	}
+
+	void Update(int currentImage, TransformComponent * transform, CameraComponent * camera, int index);
+
 	void Destroy();
+	void CreateDescriptorSetLayout();
+	void CreateDescriptorPool();
+	std::vector<UniformValue*> uniformValues;
+	VkDescriptorSetLayout descriptorSetLayout;
+
 private:
-	VkDevice& device;
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
+	Texture texture;
+
+	VkDescriptorPool descriptorPool;
+
+
+
 	bool created = false;
 };
 

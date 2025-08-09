@@ -8,6 +8,7 @@
 #include <fstream>
 #include <array>
 #include "RenderConstants.h"
+#include "RendererGlobals.h"
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
@@ -20,7 +21,8 @@
 #include <stb_image.h>
 #include "VulkanHelpers.h"
 #include "UniformSystem.h"
-
+#include "TransformSystem.h"
+#include "AssetManager.h"
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
@@ -65,6 +67,7 @@ const bool enableValidationLayers = true;
 //	3, 2, 7, 7, 2, 6,
 //	4, 5, 0, 0, 5, 1
 //};
+std::vector<Texture> textures;
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -119,7 +122,7 @@ VkExtent2D Renderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabiliti
 
 
 
-Renderer::Renderer() : pipeline(device) {
+Renderer::Renderer(entt::registry & reg) : pipeline(), registry(reg) {
 }
 void Renderer::Init() {
 	InitWindow();
@@ -137,17 +140,26 @@ void Renderer::DestroyTexture(Texture& tex) {
 	vkDestroyImage(device, tex.textureImage, nullptr);
 	vkFreeMemory(device, tex.textureImageMemory, nullptr);
 }
+void Renderer::DestroyGeometry(GeometryComponent& geo) {
+	vkDestroyBuffer(device, geo.indexBuffer, nullptr);
+	vkFreeMemory(device, geo.indexBufferMemory, nullptr);
+
+	vkDestroyBuffer(device, geo.vertexBuffer, nullptr);
+	vkFreeMemory(device, geo.vertexBufferMemory, nullptr);
+
+}
 Renderer::~Renderer() {
-	UniformSystem::DestroyComponent(uniform);
-	delete uniform;
+	/*for (auto [entity, u] : registry.view<Uniforms>().each()) {
+		UniformSystem::DestroyComponent(&u);
+	}*/
+	UniformSystem::Destroy();
 
-	DestroyTexture(texture);
-
-	vkDestroyBuffer(device, indexBuffer, nullptr);
-	vkFreeMemory(device, indexBufferMemory, nullptr);
-
-	vkDestroyBuffer(device, vertexBuffer, nullptr);
-	vkFreeMemory(device, vertexBufferMemory, nullptr);
+	for (Texture& tex : textures) {
+		DestroyTexture(tex);
+	}
+	for (auto [entity, g] : registry.view<GeometryComponent>().each()) {
+		DestroyGeometry(g);
+	}
 
 	for (VkSemaphore sem : imageAvailableSemaphores) {
 		vkDestroySemaphore(device, sem, nullptr);
@@ -202,9 +214,7 @@ void Renderer::InitVulkan() {
 	CreateSurface();
 	PickPhysicalDevice();
 	CreateLogicalDevice();
-	//uniformBuffer = new UniformBuffer(&device, &physicalDevice);
-	uniform = new UniformComponent();
-	UniformSystem::Init(&device, &physicalDevice);
+	UniformSystem::Init();
 	CreateSwapChain();
 	CreateImageViews();
 	CreateRenderPass();
@@ -212,17 +222,66 @@ void Renderer::InitVulkan() {
 	CreateCommandPool();
 	CreateDepthResources();
 	CreateFramebuffers();
-	CreateTexture(texture, "textures/aliensoldier.png");
-	CreateVertexBuffer();
-	CreateIndexBuffer();
-	UniformSystem::CreateUniformComponent(uniform, texture);
-	//uniformBuffer->CreateDescriptorSetLayout();
-	//uniformBuffer->CreateUniformBuffers();
-	//uniformBuffer->CreateDescriptorPool();
-	//uniformBuffer->CreateDescriptorSets(textureImageView, textureSampler);
+
+
+
+	//uniform = new Uniforms();
+	//CreateTexture(texture, "textures/aliensoldier.png");
+	//CreateGeometry(geometry, "models/aliensoldier.obj");
+	//UniformSystem::CreateUniforms(uniform, texture);
+	
+	
 	CreateCommandBuffers();
 	CreateSyncObjects();
 }
+void Renderer::CreateGeometry(GeometryComponent& geo, std::string filename) {
+	Model m = AssetManager::LoadModel(filename);
+	geo.numIndices = static_cast<uint32_t>(m.indices.size());
+	geo.numVerticies = static_cast<uint32_t>(m.vertices.size());
+	CreateVertexBuffer(geo, m);
+	CreateIndexBuffer(geo, m);
+
+}
+void Renderer::CreateVertexBuffer(GeometryComponent& geo, Model& m) {
+	VkDeviceSize bufferSize = sizeof(m.vertices[0]) * m.vertices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, m.vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geo.vertexBuffer, geo.vertexBufferMemory);
+	CopyBuffer(stagingBuffer, geo.vertexBuffer, bufferSize);
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void Renderer::CreateIndexBuffer(GeometryComponent& geo, Model& m) {
+	VkDeviceSize bufferSize = sizeof(m.indices[0]) * m.indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, m.indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geo.indexBuffer, geo.indexBufferMemory);
+	CopyBuffer(stagingBuffer, geo.indexBuffer, bufferSize);
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+}
+
 void Renderer::CreateInstance() {
 	if (enableValidationLayers && !CheckValidationLayerSupport()) {
 		throw std::runtime_error("validation layers requested but not found");
@@ -718,63 +777,7 @@ void Renderer::CreateCommandBuffers() {
 		throw std::runtime_error("failed to allocate command buffers");
 	}
 }
-void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = 0;
-	beginInfo.pInheritanceInfo = nullptr;
 
-	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-		throw std::runtime_error("failed to begin recording command buffer!");
-	}
-
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.renderArea.extent = swapChainExtent;
-	renderPassInfo.renderArea.offset = { 0,0 };
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-
-	std::array<VkClearValue, 2> clearValues = {  };
-	clearValues[0].color = { {0.068f, 0.268f, 0.533f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.GetPipeline());
-
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float)swapChainExtent.width;
-	viewport.height = (float)swapChainExtent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-	//can be used to only render part of the screen, in this case we are rendering the whole screen extents
-	VkRect2D scissor{};
-	scissor.offset = { 0,0 };
-	scissor.extent = swapChainExtent;
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-	VkBuffer vertexBuffers[] = { vertexBuffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.GetLayout(), 0, 1, UniformSystem::GetDescriptorSet(uniform, currentFrame), 0, nullptr);
-
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
-
-	vkCmdEndRenderPass(commandBuffer);
-
-	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-		throw std::runtime_error("failed to record command buffer");
-	}
-}
 
 void Renderer::CreateSyncObjects() {
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -840,45 +843,6 @@ void Renderer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize s
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
 	endSingleTimeCommands(commandBuffer);
-}
-void Renderer::CreateVertexBuffer() {
-	VkDeviceSize bufferSize = sizeof(model.vertices[0]) * model.vertices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-
-	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, model.vertices.data(), (size_t)bufferSize);
-	vkUnmapMemory(device, stagingBufferMemory);
-
-	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-	CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-	vkDestroyBuffer(device, stagingBuffer, nullptr);
-	vkFreeMemory(device, stagingBufferMemory, nullptr);
-}
-
-void Renderer::CreateIndexBuffer() {
-	VkDeviceSize bufferSize = sizeof(model.indices[0]) * model.indices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-
-	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, model.indices.data(), (size_t)bufferSize);
-	vkUnmapMemory(device, stagingBufferMemory);
-
-	CreateBuffer(device, physicalDevice, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-	CopyBuffer(stagingBuffer, indexBuffer, bufferSize);
-	vkDestroyBuffer(device, stagingBuffer, nullptr);
-	vkFreeMemory(device, stagingBufferMemory, nullptr);
-
 }
 
 
@@ -1089,11 +1053,11 @@ void Renderer::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayo
 	endSingleTimeCommands(commandBuffer);
 
 }
-
 void Renderer::CreateTexture(Texture& tex, const std::string & filename) {
 	CreateTextureImage(tex, filename);
 	CreateTextureImageView(tex);
 	CreateTextureSampler(tex);
+	textures.push_back(tex);
 }
 
 void Renderer::CreateTextureImage(Texture& tex, const std::string& filename) {
@@ -1147,7 +1111,6 @@ void Renderer::CreateTextureSampler(Texture& tex) {
 	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 
 	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
 	samplerInfo.compareEnable = VK_FALSE;
@@ -1184,15 +1147,88 @@ VkImageView Renderer::CreateImageView(VkImage image, VkFormat format, VkImageAsp
 	return imageView;
 }
 
-void Renderer::SetModel(Model model) {
-	this->model = model;
+
+
+
+void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<DrawGroup> & drawGroup) {
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
+
+	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+		throw std::runtime_error("failed to begin recording command buffer!");
+	}
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.renderArea.extent = swapChainExtent;
+	renderPassInfo.renderArea.offset = { 0,0 };
+	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+
+	std::array<VkClearValue, 2> clearValues = {  };
+	clearValues[0].color = { {0.068f, 0.268f, 0.533f, 1.0f} };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.GetPipeline());
+
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)swapChainExtent.width;
+	viewport.height = (float)swapChainExtent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+	//can be used to only render part of the screen, in this case we are rendering the whole screen extents
+	VkRect2D scissor{};
+	scissor.offset = { 0,0 };
+	scissor.extent = swapChainExtent;
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+	int index = 0;
+	for (auto group : drawGroup) {
+		uint32_t offset = index * sizeof(UniformBufferObject);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.GetLayout(), 0, 1, UniformSystem::GetDescriptorSet(group.uniform, currentFrame), 1, &offset);
+
+		VkBuffer vertexBuffers[] = { group.geometry->vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, group.geometry->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(commandBuffer, group.geometry->numIndices, 1, 0, 0, 0);
+		index++;
+	}
+
+
+	vkCmdEndRenderPass(commandBuffer);
+
+	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to record command buffer");
+	}
 }
 
-void Renderer::Render() {
-	TransformComponent transform;
 
-	UniformSystem::UpdateUniformBuffer(uniform, currentFrame, CameraSystem::GetMainCamera(), &transform);
-	//uniformBuffer->UpdateUniformBuffer(currentFrame, CameraSystem::GetMainCamera());
+void Renderer::Render() {
+
+	std::vector<DrawGroup> drawGroup;
+	int ent_index = 0;
+	for (auto [entity, t, g, u] : registry.view<TransformComponent,  GeometryComponent, UniformComponent>().each()) {
+		DrawGroup group;
+		group.geometry = &g;
+		group.transform = &t;
+		group.uniform = &u;
+		pipeline.Update(currentFrame, group.transform, CameraSystem::GetMainCamera(), ent_index);
+		TransformSystem::GenerateTransformMatrix(group.transform);
+		drawGroup.push_back(group);
+		ent_index++;
+	}
+
 
 	vkWaitForFences(device, 1, &inFlightFenses[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -1211,7 +1247,7 @@ void Renderer::Render() {
 
 	vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
-	RecordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+	RecordCommandBuffer(commandBuffers[currentFrame], imageIndex, drawGroup);
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

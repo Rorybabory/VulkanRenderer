@@ -1,7 +1,13 @@
 #include "Pipeline.h"
 #include "VulkanHelpers.h"
 #include "Geometry.h"
+#include "RendererGlobals.h"
 void Pipeline::CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass & renderPass, VkShaderModule& vertShaderModule, VkShaderModule& fragShaderModule) {
+	UniformImageSampler * imgSampler = new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT);
+	uniformValues.push_back(new UniformUBO<UniformBufferObject>(device, physicalDevice, VK_SHADER_STAGE_VERTEX_BIT));
+	uniformValues.push_back(imgSampler);
+	CreateDescriptorSetLayout();
+
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -130,7 +136,7 @@ void Pipeline::CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass & renderP
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = UniformSystem::getDescriptorSetLayout();
+	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;
 	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -179,9 +185,79 @@ void Pipeline::CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass & renderP
 	created = true;
 }
 
+void Pipeline::Update(int currentImage, TransformComponent* transform, CameraComponent* camera, int index) {
+	/*uniform.Update(currentImage, camera, transform);*/
+	
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo{};
+	ubo.model = transform->modelMatrix;
+	ubo.view = camera->view;
+	ubo.proj = camera->proj;
+
+	//flip y axis, as glm is designed for opengl where y is flipped
+	ubo.proj[1][1] *= -1;
+
+	UniformUBO<UniformBufferObject>* uboRef = dynamic_cast<UniformUBO<UniformBufferObject>*>(uniformValues[0]);
+	
+	memcpy(((char*)uboRef->GetMappedUniformBuffer(currentImage) + index * sizeof(UniformBufferObject)), &ubo, sizeof(UniformBufferObject));
+
+}
+void Pipeline::CreateDescriptorSetLayout() {
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	for (int i = 0; i < uniformValues.size(); i++) {
+		VkDescriptorSetLayoutBinding layoutBinding{};
+		layoutBinding.binding = i;
+		layoutBinding.descriptorType = uniformValues[i]->GetDescriptorType();
+		layoutBinding.descriptorCount = 1;
+		layoutBinding.stageFlags = uniformValues[i]->GetStage();
+		bindings.push_back(layoutBinding);
+	}
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = bindings.size();
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+		std::cout << "failed to create descriptor set layout" << "\n";
+	}
+}
 
 void Pipeline::Destroy() {
 	vkDestroyPipeline(device, pipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
+}
+
+void UniformSystem::CreateDescriptorSets(UniformComponent* uniform) {
+	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, uniform->pipeline->descriptorSetLayout);
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	allocInfo.pSetLayouts = layouts.data();
+
+	uniform->descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+	if (vkAllocateDescriptorSets(device, &allocInfo, uniform->descriptorSets.data()) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		std::vector<VkWriteDescriptorSet> descriptorWrites{};
+		for (int j = 0; j < uniform->pipeline->uniformValues.size(); j++) {
+			if (uniform->pipeline->uniformValues[j]->GetDescriptorType() == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+				UniformImageSampler * uniformSampler = dynamic_cast<UniformImageSampler*>(uniform->pipeline->uniformValues[j]);
+				uniformSampler->setTexture(&uniform->texture);
+			}
+			VkWriteDescriptorSet wrDescSet = uniform->pipeline->uniformValues[j]->GetDescriptorSetLayoutBinding(uniform->descriptorSets[i], j, i);
+			
+			descriptorWrites.push_back(wrDescSet);
+		}
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
 }

@@ -13,6 +13,7 @@
 #include "UniformSystem.h"
 #include "Pipeline.h"
 #include "TextureSystem.h"
+#include <entt.hpp>
 
 typedef struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
@@ -28,17 +29,25 @@ typedef struct SwapChainSupportDetails {
 	std::vector<VkPresentModeKHR> presentModes;
 }SwapChainSupportDetails;
 
+struct DrawGroup {
+	GeometryComponent* geometry;
+	TransformComponent* transform;
+	UniformComponent* uniform;
+};
 
 
 class Renderer
 {
 public:
-	Renderer();
+	Renderer(entt::registry & reg);
 	bool Update();
 	~Renderer();
 	void Init();
+	void CreateTexture(Texture& tex, const std::string& filename);
+	void CreateGeometry(GeometryComponent& geo, std::string filename);
+	Pipeline& GetMainPipeline() { return pipeline; }
+
 	bool framebufferResized = false;
-	void SetModel(Model model);
 
 private:
 
@@ -72,8 +81,10 @@ private:
 
 	void CreateSyncObjects();
 
-	void CreateVertexBuffer();
-	void CreateIndexBuffer();
+	void CreateVertexBuffer(GeometryComponent& geo, Model & m);
+	void CreateIndexBuffer(GeometryComponent& geo, Model& m);
+
+	void DestroyGeometry(GeometryComponent& geo);
 
 	void CreateDepthResources();
 	
@@ -84,11 +95,12 @@ private:
 
 	
 
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<DrawGroup>& drawGroup);
 	
 	void RecreateSwapChain();
 
 	void CleanupSwapChain();
+
 
 	
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -97,7 +109,6 @@ private:
 	void CreateTextureImageView(Texture & tex);
 	void CreateTextureSampler(Texture& tex);
 
-	void CreateTexture(Texture& tex, const std::string& filename);
 
 	void DestroyTexture(Texture & tex);
 
@@ -126,9 +137,7 @@ private:
 
 	GLFWwindow* window;
 	VkDebugUtilsMessengerEXT debugMessenger;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkInstance instance;
-	VkDevice device;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
@@ -143,11 +152,7 @@ private:
 
 	Pipeline pipeline;
 
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-
+	GeometryComponent geometry;
 
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
@@ -157,9 +162,7 @@ private:
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
 	VkSampler textureSampler;*/
-	Texture texture;
 
-	UniformComponent* uniform;
 
 
 	std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -173,7 +176,7 @@ private:
 	std::vector < VkFence> inFlightFenses;
 	uint32_t currentFrame = 0;
 
-	Model model;
+	entt::registry& registry;
 
 	CameraComponent* activeCamera;
 };

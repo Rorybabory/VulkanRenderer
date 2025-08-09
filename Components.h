@@ -4,10 +4,11 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "TextureSystem.h"
 //struct GraphicsComponent {
 //
 //};
-
+class Pipeline;
 struct TransformComponent {
 	glm::vec3 pos;
 	glm::vec3 scale;
@@ -22,16 +23,16 @@ struct CameraComponent {
 };
 
 struct UniformComponent {
-	VkDescriptorSetLayout descriptorSetLayout;
-
-	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
-	std::vector<void*> uniformBuffersMapped;
-
+	Pipeline* pipeline;
+	Texture texture;
 };
 
-struct MaterialComponent {
-
+struct GeometryComponent {
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+	uint32_t numVerticies;
+	uint32_t numIndices;
 };
