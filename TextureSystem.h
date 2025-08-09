@@ -6,4 +6,5 @@ struct Texture {
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
 	VkSampler textureSampler;
+	uint32_t mipLevels;
 };
