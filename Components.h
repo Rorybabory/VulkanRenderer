@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include "TextureSystem.h"
+#include <array>
 //struct GraphicsComponent {
 //
 //};
@@ -20,12 +21,16 @@ struct TransformComponent {
 struct CameraComponent {
 	glm::mat4 view;
 	glm::mat4 proj;
+
+	glm::vec3 pos;
+	glm::vec3 forward;
+	glm::vec3 up;
 };
 
 struct UniformComponent {
 	std::vector<VkDescriptorSet> descriptorSets;
 	Pipeline* pipeline;
-	Texture texture;
+	std::array<Texture, 5> textures;
 };
 
 struct GeometryComponent {

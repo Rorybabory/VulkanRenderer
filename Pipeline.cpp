@@ -3,9 +3,12 @@
 #include "Geometry.h"
 #include "RendererGlobals.h"
 void Pipeline::CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass & renderPass, VkShaderModule& vertShaderModule, VkShaderModule& fragShaderModule) {
-	UniformImageSampler * imgSampler = new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT);
 	uniformValues.push_back(new UniformUBO<UniformBufferObject>(device, physicalDevice, VK_SHADER_STAGE_VERTEX_BIT));
-	uniformValues.push_back(imgSampler);
+	uniformValues.push_back(new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT));
+	uniformValues.push_back(new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT));
+	uniformValues.push_back(new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT));
+	uniformValues.push_back(new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT));
+	uniformValues.push_back(new UniformImageSampler(VK_SHADER_STAGE_FRAGMENT_BIT));
 	CreateDescriptorSetLayout();
 
 
@@ -89,7 +92,7 @@ void Pipeline::CreatePipeline(VkExtent2D swapChainExtent, VkRenderPass & renderP
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;
@@ -245,13 +248,15 @@ void UniformSystem::CreateDescriptorSets(UniformComponent* uniform) {
 	if (vkAllocateDescriptorSets(device, &allocInfo, uniform->descriptorSets.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
-
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		int samplerIndex = 0;
+
 		std::vector<VkWriteDescriptorSet> descriptorWrites{};
 		for (int j = 0; j < uniform->pipeline->uniformValues.size(); j++) {
 			if (uniform->pipeline->uniformValues[j]->GetDescriptorType() == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
 				UniformImageSampler * uniformSampler = dynamic_cast<UniformImageSampler*>(uniform->pipeline->uniformValues[j]);
-				uniformSampler->setTexture(&uniform->texture);
+				uniformSampler->setTexture(&uniform->textures[samplerIndex]);
+				samplerIndex++;
 			}
 			VkWriteDescriptorSet wrDescSet = uniform->pipeline->uniformValues[j]->GetDescriptorSetLayoutBinding(uniform->descriptorSets[i], j, i);
 			

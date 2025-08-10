@@ -33,6 +33,6 @@ void TransformSystem::SpinTransform(TransformComponent* transform) {
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	transform->rotation.y = time * glm::radians(90.0f);
+	transform->rotation.y = time * glm::radians(35.0f);
 	transform->scale = glm::vec3(1.0f, 1.0f, 1.0f);
 }

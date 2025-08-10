@@ -44,6 +44,7 @@ public:
 	~Renderer();
 	void Init();
 	void CreateTexture(Texture& tex, const std::string& filename);
+	void CreateTextureHatch(Texture& tex, int hatchID);
 	void CreateGeometry(GeometryComponent& geo, std::string filename);
 	Pipeline& GetMainPipeline() { return pipeline; }
 
@@ -106,6 +107,7 @@ private:
 	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	void CreateTextureImage(Texture& tex, const std::string& filename);
+	void CreateTextureImageHatch(Texture& tex, int hatchID);
 	void CreateTextureImageView(Texture & tex);
 	void CreateTextureSampler(Texture& tex);
 

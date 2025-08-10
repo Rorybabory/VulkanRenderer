@@ -1,0 +1,25 @@
+# Blender 4.5.1 LTS MTL File: 'revolver.blend'
+# www.blender.org
+
+newmtl BaseMaterial
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/Rory Lambert/3D Objects/colt_python_revolver/textures/BaseMaterial_Base_Color.png
+map_Ns C:/Users/Rory Lambert/3D Objects/colt_python_revolver/textures/BaseMaterial_Roughness.png
+map_refl C:/Users/Rory Lambert/3D Objects/colt_python_revolver/textures/BaseMaterial_Metallic.png
+
+newmtl bullet
+Ka 1.000000 1.000000 1.000000
+Kd 0.062517 0.205190 0.800133
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Ns C:/Users/Rory Lambert/3D Objects/colt_python_revolver/bullet_textures/bullet_Roughness.png
+map_refl C:/Users/Rory Lambert/3D Objects/colt_python_revolver/bullet_textures/bullet_Metallic.png
+map_Bump -bm 1.000000 C:/Users/Rory Lambert/3D Objects/colt_python_revolver/bullet_textures/bullet_Normal.png
